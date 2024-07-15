@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First steps to volatile memory analysis</title>
+    <!-- <link rel="stylesheet" href="styles.css"> -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+            background: #000000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #0779e4 3px solid;
+        }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 16px;
+        }
+        header ul {
+            padding: 0;
+            list-style: none;
+        }
+        header li {
+            float: left;
+            display: inline;
+            padding: 0 20px;
+        }
+        header #branding {
+            float: left;
+        }
+        header #branding h1 {
+            margin: 0;
+        }
+        header nav {
+            float: right;
+            margin-top: 10px;
+        }
+        .main {
+            padding: 20px;
+            background: #fff;
+        }
+        .main h2 {
+            color: #333;
+        }
+        .main p {
+            color: #666;
+        }
+        .footer {
+            background: #333;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 4px;
+            font-size: 90%;
+            color: #c7254e;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+        }
+        .active {
+            border-bottom: 2px solid #0779e4;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div id="branding">
+                <h1>Sujal Adhikari's Portfolio</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <!-- <li><a href="about.html">About</a></li>
+                    <li><a href="projects.html">Projects</a></li>
+                    <li><a href="contact.html">Contact</a></li> -->
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="main container">
+        <h2>We will run several volatility commands in this tutorial using a simple case scenario: <br> the Cridex malware, ready? Let’s begin!</h2>
+        <!-- <p>A memory image was taken from a seized Windows machine. As a security blue team analyst, analyze the image and answer the provided questions.</p> -->
+        <p><strong>TOOLS:</strong>Volatility 3, CertUtil, HxD</p>
+        <p><strong>Dump analysis</strong></p>
+        <p>
+            The very first command to run during a volatile memory analysis is: imageinfo, it will help you to get more information about the memory dump
+           the comand will be <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem imageinfo
+        </code><br>
+        With -f specifying your dump file and imageinfo the volatility plugin you want to use. You should obtain the following result:
+           <br><img src="cridex/winprofile.png" alt="SHA1 hash of Triage-Memory.mem"><br>
+           We now have the computer OS from which this memory dump comes from (WinXPSP2x86). The investigation can now begin, we can specify to volatility the OS profile (--profile=WinXPSP2x86) and try to find what happened on the victim’s computer. <br>
+        </p>
+        
+        <p>
+           <strong>Let’s see what were the running processes using the pslist plugin.</strong> <br>
+           <code> python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 pslist </code> <br>
+           <br><img src="cridex/pslist.png" alt="Volatility profile information"><br>
+           An alternative to the pslist plugin can be used to display the processes and their parent processes: pstree <br> 
+           <code> python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 pstree</code>
+           <img src="cridex/pstree.png" alt="">
+           At first glance we can notice an odd process named “reader_sl.exe” with the “explorer.exe” as parent process (PPID) which was one of the last processes running on the machine. <br> <br>
+           Let’s run a last command before investigating deeper into these two processes. psxview will list processes that are trying to hide themselves while running on the computer, this plugin can be really useful.
+           <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 psxview</code> <br>
+           Well, except in our case ;) no processes seem to be hidden, if so you’ll see “False” in the first two columns (pslist and psscan). <br>
+        </p>
+        
+        <p>
+            Let’s get back to this investigation, after seeing the running processes, a good thing to do is to check the running sockets and open connections on the computer. To do this we’ll use these different plugins: connscan, netscan and sockets <br>
+            <img src="cridex/connscan.png" alt="">
+            <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 connscan</code> <br>
+            <p>
+            The connscan plugin is a scanner for TCP connections, while sockets will print a list of open sockets and finally netscan (which cannot be used in our example due to the profile used) will scan a Vista (or later) image for connections and sockets. <br> <br>
+            In our scenario, two TCP connections are used by the process with PID 1484 (by looking at our command history outputs we can easily link the PID 1484 to the process explorer.exe). We can see that one of this TCP connection is still open, the one using port 1038 and communicating with the destination IP address 41.168.5.140. <br>
+        </p>
+        </p>
+        
+        <p>
+            <strong>Let’s now take a look at the last commands ran, by using cmdscan, consoles and cmdline plugins.</strong><br>
+            The question need us to understand more about process called wscript.exe and not just to know the process id but to also know what this process wscript.exe has open other process once it was open in windows 7. We can use the same plugin as in third question but we can do better by using pstree as it shows clearly.  <br>
+            To find the child process of wscript.exe, we use the plugin pstree with the command <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 cmdline</code> <br>
+            <img src="cridex/cmdline.png" alt="Process tree showing wscript.exe and its child processes">
+            <img src="cridex/cmd.png" alt="">
+            The first two plugins: consoles (which extracts command history by scanning for _CONSOLE_INFORMATION) and cmdscan (which extracts command history by scanning for _COMMAND_HISTORY) did not contain any information in their buffers.<br>
+            However, the cmdline plugin which display process command-line arguments did give us interesting information. Indeed, we now have the full path of the processes launched with PID 1484 and 1640. The “Reader_sl.exe” process is getting more and more suspicious…<br>
+            So far, we know that this process was launched by the explorer process, is supposed to be a classic Adobe reader application, however we observed a running connection towards an external IP used by this very same process… <br>
+        </p>
+        
+        <p>
+            <strong>Let’s not jump to conclusions too quickly and let’s take a look at the concerned executable and the analysis of this latter using respectively procdump and memdump by specifying the -p 1640 (its PID) and --dump-dir (the directory where we want to extract theses dumps).</strong> <br>
+            <img src="cridex/procdump.png" alt="">
+            <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 procdump -p 1640 --dump-dir .</code>
+            <img src="cridex/memdump.png" alt="">
+            <code>python2 /home/anonymous/Desktop/volatility2/volatility-master/vol.py -f /home/anonymous/Desktop/cridex.vmem --profile=WinXPSP2x86 memdump -p 1640 --dump-dir .</code>
+            We can try to use connscan, connections,sockscan. but here we can use net scan as it works and try to focus to applications that have established network to outside. <br>
+            We use the plugin netscan with the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem netscan</code>. <br>
+            <img src="5.png" alt="Network scan showing established connections"><br>
+            The first established network in the analysis is UWkpjFjDzM.exe, confirming the process is suspicious. <br>
+            Therefore, the answer is <strong>10.0.0.101</strong>.
+        </p>
+        
+        <p>
+            <strong>Sixth question:</strong> Based on the answer regarding the infected PID, can you determine the IP of the attacker? <br>
+            The IP address of the remote from our previous screenshot is 10.0.0.106. <br>
+            The answer is <strong>10.0.0.106</strong>.
+        </p>
+        
+        <p>
+            <strong>Seventh question:</strong> How many processes are associated with VCRUNTIME140.dll? <br>
+            We can use plugin dlllist to see what process the dll is interact with and grep that |grep VCRUNTIME140.dll to get how many processes that dll interact  <br>
+            We use the plugin dlllist to see the processes interacting with the DLL and grep that with <code>|grep VCRUNTIME140.dll</code> using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem –profile=Win7SP1x64 dlllist|grep VCRUNTIME140.dll</code>. <br>
+            <img src="6.png" alt="Process list showing VCRUNTIME140.dll"><br>
+            Our answer is <strong>5 processes</strong>.
+        </p>
+        
+        <p>
+            <strong>Eighth question:</strong> After dumping the infected process, what is its MD5 hash? <br>
+            We know our infected process is UWkpjFjDzM.exe then we need to know process id of that infected process and we can use the plugin pstree <br>
+            We know our infected process is UWkpjFjDzM.exe with PID 3496. We dump the process with the plugin procdump using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem --profile=Win7SP1x64 procdump --dump-dir=/home/anonymous/Desktop/ 3496</code>. <br>
+            <img src="8.png" alt="Process dump command output"><br>
+            We get our dumped file in our desktop directory named executable.3496.exe, and calculate its MD5 hash using the md5sum tool: <code>md5sum executable.3496.exe</code>. <br>
+            <img src="8.1.png" alt="MD5 hash of executable.3496.exe"><br>
+            Our answer is <strong>690ea20bc3bdfb328e23005d9a80c290</strong>.
+        </p>
+        
+        <p>
+            <strong>Ninth question:</strong> What is the LM hash of Bob's account? <br>
+            In this question, it wants us find LM hash. In here, we can use plugin called hashdump to dump hashes. The command will be <code>“python2 “/home/anonymous/Desktop/New Folder/volatility/vol.py” –f “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 hashdump”</code>. <br>
+            <img src="9.png" alt="Filescan showing .txt files"><br>
+            Now we can see two hashes, first hash from left side is LM hash and second hash is password hash. Then our LM hash of <strong>Bob is aad3b435b51404eeaad3b435b51404ee</strong>.
+        </p>
+        
+        <p>
+            <strong>Tenth question:</strong> What memory protection constants does the VAD node at 0xfffffa800577ba10 have?<br>
+            VAD is used by the Windows memory manager to describe memory ranges used by a process as they are allocated. When a process allocates memory with VirutalAlloc, the memory manager creates an entry in the VAD tree. Plugin that we can use is ladino. <br>
+            Command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 vadinfo|grep 0xfffffa800577ba10 -C 4”</code>. <br>
+            <img src="10.png" alt="Command scan command execution before memory was dumped"><br>
+            Now we can see protection is <strong>PAGE_READONLY</strong>.
+        </p>
+        
+        <p>
+            <strong>Eleventh question:</strong>What memory protection did the VAD starting at 0x00000000033c0000 and ending at 0x00000000033dffff have? <br>
+            We utilize the plugin console and the execution process for commands with the command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 vadinfo|grep ‘0x00000000033c0000 End 0x00000000033dffff’ -C 4</code>. <br>
+            <img src="11.png" alt="Command line showing execution process"><br>
+            Our permission now is<strong> PAGE_NOACCESS</strong>.
+        </p>
+        
+        <p>
+            <strong>Twelfth question:</strong> There was a VBS script that ran on the machine. What is the name of the script? (submit without file extension) <br>
+            Run on the machine meaning that we should check the one that execute in a certain command with path. the plugin cmdline is useful in this situation <br>
+            command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 cmdline|grep -i vbs -B 2</code>. <br>
+            <img src="12.png" alt="Cmdline file path of infected process"><br>
+            Name of script is <strong>vhjReUDEuumrX</strong>.
+        </p>
+        
+        <p>
+            <strong>Thirteenth question:</strong>An application was run at 2019-03-07 23:06:58 UTC. What is the name of the program? (Include extension) <br>
+            we can try the application using cmdline and consoles which fails. <br>
+            CMDLINE: it fails because the program was closed and also they specified the word ‘was’ <br>
+            CONSOLES: It fails because the program was not only closed but the history of command for that process does not exist and maybe they turn off PC so i wont exist <br>
+            We use the plugin malfind and associate processes with malware. Then, processes with <code>|grep Zeus</code> using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem –profile=Win7SP1x64 malfind | grep Zeus</code>. <br>
+            <img src="13.png" alt="Process list showing Zeus malware"><br>
+            Name of script is <strong>Skype.exe</strong>.
+        </p>
+        
+        <p>
+            <strong>Fourteenth question:</strong>What was written in notepad.exe at the time when the memory dump was captured?<br>
+            we know pid process of notepad as we already done and it is 3032. command <code>“ python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 memdump -p3032 — dump-dir .”</code>. <br>
+            <img src="14.png" alt="Malprocfind detected Trojan"><br>
+            Our Flag is flag <strong>REDBULL_IS_LIFE</strong>.
+        </p>
+        
+        <p>
+            <strong>Fifteenth question:</strong>What is the short name of the file at file record 59045?<br>
+            For file record, we can use plugin called mftparser to do the job. Comand <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 mftparser|grep 59045 -C 20”</code>. <br>
+            <img src="15.png" alt="Process tree showing parent process of cmd.exe"><br>
+            Our answer is <strong>EMPLOY~1.XLS</strong>.
+        </p>
+        
+        <p>
+            <strong>Sixteenth question:</strong>This box was exploited and is running meterpreter. What was the infected PID?<br>
+            we already did this one. command <code>command: “python2 volatility/vol.py –f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory.-001.mem pslist”</code>. <br>
+            <img src="16.png" alt="Browser scan web pages have been open"><br>
+            Suscioup process was <strong>UWkpjFjDzM.exe</strong> <br>
+            then our pid is <strong>3496</strong>.
+        </p>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2024 Sujal Adhikari. All rights reserved.</p>
+    </footer>
+</body>
+</html>

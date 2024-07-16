@@ -1,7 +1,0 @@
-{
-  "name": "portfolio",
-  "description": "A personal portfolio site for Sujal Adhikari",
-  "require": {
-    "php": "^7.4 || ^8.0"
-  }
-}

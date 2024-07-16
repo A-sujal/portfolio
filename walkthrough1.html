@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>DUMPME Challenge Walkthrough</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+            background: #000000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #0779e4 3px solid;
+        }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 16px;
+        }
+        header ul {
+            padding: 0;
+            list-style: none;
+        }
+        header li {
+            float: left;
+            display: inline;
+            padding: 0 20px;
+        }
+        header #branding {
+            float: left;
+        }
+        header #branding h1 {
+            margin: 0;
+        }
+        header nav {
+            float: right;
+            margin-top: 10px;
+        }
+        .main {
+            padding: 20px;
+            background: #fff;
+        }
+        .main h2 {
+            color: #333;
+        }
+        .main p {
+            color: #666;
+        }
+        .footer {
+            background: #333;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 4px;
+            font-size: 90%;
+            color: #c7254e;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+        }
+        .active {
+            border-bottom: 2px solid #0779e4;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div id="branding">
+                <h1>Sujal Adhikari's Portfolio</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="dumpme.pdf" download target="_blank">download This documentations</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="main container">
+        <h2>DUMPME Challenge Walkthrough</h2>
+        <p><strong>TOOLS:</strong> Volatility2, SHA1</p>
+        
+        <p>
+           <strong>First question:</strong> What is the SHA1 hash of Triage-Memory.mem (memory dump)? <br>
+           To find the hash of the memory dump, we use the tool called SHA1. The command is <code>sha1sum Triage-Memory-001.mem</code>.
+           <br><img src="DUMPME/1.png" alt="SHA1 hash of Triage-Memory.mem"><br>
+        </p>
+        
+        <p>
+           <strong>Second question:</strong> What volatility profile is the most appropriate for this machine? (ex: Win10x86_14393) <br>
+           Now, we need to do start our understand what profile are we dealing with. Then there is plugin called image info. <br>
+           To find the profile, we use the plugin called imageinfo with the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem imageinfo</code>. <br>
+           Our Profile is <strong>Win7SP1x64</strong>.
+           <br><img src="DUMPME/2.png" alt="Volatility profile information"><br>
+        </p>
+        
+        <p>
+            <strong>Third question:</strong> What was the process ID of notepad.exe? <br>
+            From here, we can use plugin called pslist to list our processes during memory dump <br>
+            We use the plugin pslist to list the processes during the memory dump with the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem pslist</code>. <br>
+            The parent process ID for notepad is 1432 and the process ID of notepad is 3032. <br>
+            The answer is <strong>3032</strong>.
+            <br><img src="DUMPME/3.png" alt="Process list showing notepad.exe"><br>
+        </p>
+        
+        <p>
+            <strong>Fourth question:</strong> Name the child process of wscript.exe. <br>
+            The question need us to understand more about process called wscript.exe and not just to know the process id but to also know what this process wscript.exe has open other process once it was open in windows 7. We can use the same plugin as in third question but we can do better by using pstree as it shows clearly.  <br>
+            To find the child process of wscript.exe, we use the plugin pstree with the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem pstree</code>. <br>
+            <img src="DUMPME/4.png" alt="Process tree showing wscript.exe and its child processes"><br>
+            How do we define child process? we can define by the dot. the one with one dot is process that stand itself meaning that it is not child process. the one with two dots makes it to be child process of process with one dot and even the one with three dot makes it to be child process of process with two dots. things <br>
+            We see that the process wscript.exe is a child process of hfs.exe, and it opens another process UWkpjFjDzM.exe, which in turn opens the cmd process. <br>
+            Our answer is <strong>UWkpjFjDzM.exe</strong>.
+        </p>
+        
+        <p>
+            <strong>Fifth question:</strong> What was the IP address of the machine at the time the RAM dump was created? <br>
+            We can try to use connscan, connections,sockscan. but here we can use net scan as it works and try to focus to applications that have established network to outside. <br>
+            We use the plugin netscan with the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem netscan</code>. <br>
+            <img src="DUMPME/5.png" alt="Network scan showing established connections"><br>
+            The first established network in the analysis is UWkpjFjDzM.exe, confirming the process is suspicious. <br>
+            Therefore, the answer is <strong>10.0.0.101</strong>.
+        </p>
+        
+        <p>
+            <strong>Sixth question:</strong> Based on the answer regarding the infected PID, can you determine the IP of the attacker? <br>
+            The IP address of the remote from our previous screenshot is 10.0.0.106. <br>
+            The answer is <strong>10.0.0.106</strong>.
+        </p>
+        
+        <p>
+            <strong>Seventh question:</strong> How many processes are associated with VCRUNTIME140.dll? <br>
+            We can use plugin dlllist to see what process the dll is interact with and grep that |grep VCRUNTIME140.dll to get how many processes that dll interact  <br>
+            We use the plugin dlllist to see the processes interacting with the DLL and grep that with <code>|grep VCRUNTIME140.dll</code> using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem –profile=Win7SP1x64 dlllist|grep VCRUNTIME140.dll</code>. <br>
+            <img src="DUMPME/6.png" alt="Process list showing VCRUNTIME140.dll"><br>
+            Our answer is <strong>5 processes</strong>.
+        </p>
+        
+        <p>
+            <strong>Eighth question:</strong> After dumping the infected process, what is its MD5 hash? <br>
+            We know our infected process is UWkpjFjDzM.exe then we need to know process id of that infected process and we can use the plugin pstree <br>
+            We know our infected process is UWkpjFjDzM.exe with PID 3496. We dump the process with the plugin procdump using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem --profile=Win7SP1x64 procdump --dump-dir=/home/anonymous/Desktop/ 3496</code>. <br>
+            <img src="DUMPME/8.png" alt="Process dump command output"><br>
+            We get our dumped file in our desktop directory named executable.3496.exe, and calculate its MD5 hash using the md5sum tool: <code>md5sum executable.3496.exe</code>. <br>
+            <img src="DUMPME/8.1.png" alt="MD5 hash of executable.3496.exe"><br>
+            Our answer is <strong>690ea20bc3bdfb328e23005d9a80c290</strong>.
+        </p>
+        
+        <p>
+            <strong>Ninth question:</strong> What is the LM hash of Bob's account? <br>
+            In this question, it wants us find LM hash. In here, we can use plugin called hashdump to dump hashes. The command will be <code>“python2 “/home/anonymous/Desktop/New Folder/volatility/vol.py” –f “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 hashdump”</code>. <br>
+            <img src="DUMPME/9.png" alt="Filescan showing .txt files"><br>
+            Now we can see two hashes, first hash from left side is LM hash and second hash is password hash. Then our LM hash of <strong>Bob is aad3b435b51404eeaad3b435b51404ee</strong>.
+        </p>
+        
+        <p>
+            <strong>Tenth question:</strong> What memory protection constants does the VAD node at 0xfffffa800577ba10 have?<br>
+            VAD is used by the Windows memory manager to describe memory ranges used by a process as they are allocated. When a process allocates memory with VirutalAlloc, the memory manager creates an entry in the VAD tree. Plugin that we can use is ladino. <br>
+            Command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 vadinfo|grep 0xfffffa800577ba10 -C 4”</code>. <br>
+            <img src="DUMPME/10.png" alt="Command scan command execution before memory was dumped"><br>
+            Now we can see protection is <strong>PAGE_READONLY</strong>.
+        </p>
+        
+        <p>
+            <strong>Eleventh question:</strong>What memory protection did the VAD starting at 0x00000000033c0000 and ending at 0x00000000033dffff have? <br>
+            We utilize the plugin console and the execution process for commands with the command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 vadinfo|grep ‘0x00000000033c0000 End 0x00000000033dffff’ -C 4</code>. <br>
+            <img src="DUMPME/11.png" alt="Command line showing execution process"><br>
+            Our permission now is<strong> PAGE_NOACCESS</strong>.
+        </p>
+        
+        <p>
+            <strong>Twelfth question:</strong> There was a VBS script that ran on the machine. What is the name of the script? (submit without file extension) <br>
+            Run on the machine meaning that we should check the one that execute in a certain command with path. the plugin cmdline is useful in this situation <br>
+            command <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 cmdline|grep -i vbs -B 2</code>. <br>
+            <img src="DUMPME/12.png" alt="Cmdline file path of infected process"><br>
+            Name of script is <strong>vhjReUDEuumrX</strong>.
+        </p>
+        
+        <p>
+            <strong>Thirteenth question:</strong>An application was run at 2019-03-07 23:06:58 UTC. What is the name of the program? (Include extension) <br>
+            we can try the application using cmdline and consoles which fails. <br>
+            CMDLINE: it fails because the program was closed and also they specified the word ‘was’ <br>
+            CONSOLES: It fails because the program was not only closed but the history of command for that process does not exist and maybe they turn off PC so i wont exist <br>
+            We use the plugin malfind and associate processes with malware. Then, processes with <code>|grep Zeus</code> using the command <code>python2 volatility/vol.py -f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory-001.mem –profile=Win7SP1x64 malfind | grep Zeus</code>. <br>
+            <img src="DUMPME/13.png" alt="Process list showing Zeus malware"><br>
+            Name of script is <strong>Skype.exe</strong>.
+        </p>
+        
+        <p>
+            <strong>Fourteenth question:</strong>What was written in notepad.exe at the time when the memory dump was captured?<br>
+            we know pid process of notepad as we already done and it is 3032. command <code>“ python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 memdump -p3032 — dump-dir .”</code>. <br>
+            <img src="DUMPME/14.png" alt="Malprocfind detected Trojan"><br>
+            Our Flag is flag <strong>REDBULL_IS_LIFE</strong>.
+        </p>
+        
+        <p>
+            <strong>Fifteenth question:</strong>What is the short name of the file at file record 59045?<br>
+            For file record, we can use plugin called mftparser to do the job. Comand <code>“python2 “/home/anonymous/Desktop/New Folder/triage-Memory.mem” –profile=Win7SP1x64 mftparser|grep 59045 -C 20”</code>. <br>
+            <img src="DUMPME/15.png" alt="Process tree showing parent process of cmd.exe"><br>
+            Our answer is <strong>EMPLOY~1.XLS</strong>.
+        </p>
+        
+        <p>
+            <strong>Sixteenth question:</strong>This box was exploited and is running meterpreter. What was the infected PID?<br>
+            we already did this one. command <code>command: “python2 volatility/vol.py –f /home/anonymous/Desktop/Dumpme\Volatility2/Triage-Memory.-001.mem pslist”</code>. <br>
+            <img src="DUMPME/16.png" alt="Browser scan web pages have been open"><br>
+            Suscioup process was <strong>UWkpjFjDzM.exe</strong> <br>
+            then our pid is <strong>3496</strong>.
+        </p>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2024 Sujal Adhikari. All rights reserved.</p>
+    </footer>
+</body>
+</html>

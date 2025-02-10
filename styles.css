@@ -353,3 +353,22 @@ footer p {
         flex: 1 1 100%;
     }
 }
+.badge-container {
+    position: absolute;
+    top: 15px;  /* Adjust for proper spacing */
+    right: 90px; /* Moves it to the right */
+}
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+}
+
+.badge-container {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    width: 300px;
+    height: 600px;
+}
